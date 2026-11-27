@@ -1,4 +1,4 @@
-// 2026-11-27 rev.11 — Cloudflare Worker 설정 파일
+// 2026-11-27 rev.12 — Cloudflare Worker 설정 파일 (rev.12: 설정은 그대로, 카카오 값은 Secret으로만)
 // - 화면 파일(index.html, images)은 public 폴더에서 바로 보여 줌
 // - /api/... 주소는 src/worker.js 서버 코드가 처리
 // - 비밀값(카카오 키 등)은 여기 넣지 않음 → Cloudflare 화면 Settings > Variables and Secrets 에 "Secret"으로 넣기

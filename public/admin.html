@@ -1,0 +1,88 @@
+<!-- 2026-11-27 rev.12 — 관리자 페이지 처음 만듦: 카카오로 로그인한 관리자만 신청자 목록·전체 인원을 볼 수 있음 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>관리자 — 호서대학교 × 일잘러랩 AI 특강</title>
+<style>
+  :root{--dark:#0f1210;--lime:#e2f96a;--green:#2f4a37;--paper:#f4f4f1;--white:#fff;--text:#1a1d1a;--muted:#5b625c;--line:#dcdfd9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;background:var(--paper);color:var(--text);line-height:1.6;word-break:keep-all}
+  .inner{max-width:1100px;margin:0 auto;padding:0 16px}
+
+  /* ===== 관리자 헤더 ===== */
+  .top{background:var(--dark);color:var(--white)}
+  .top .inner{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px}
+  .top h1{font-size:16px;font-weight:700}
+  .top a{color:var(--dark);background:var(--white);text-decoration:none;font-weight:700;font-size:13px;border-radius:999px;padding:8px 16px;flex:none}
+
+  /* ===== 요약 (전체 신청 인원) ===== */
+  .summary{display:flex;align-items:baseline;gap:10px;margin:28px 0 16px}
+  .summary .label{font-weight:700;color:var(--muted)}
+  .summary .count{font-size:36px;font-weight:800;color:var(--green)}
+  .who{color:var(--muted);font-size:14px;margin-bottom:12px}
+
+  /* ===== 신청자 목록 (휴대폰에서는 옆으로 밀어서 봄) ===== */
+  .table-wrap{background:var(--white);border-radius:18px;overflow-x:auto;box-shadow:0 6px 20px rgba(0,0,0,.05);margin-bottom:40px}
+  table{width:100%;border-collapse:collapse;min-width:760px;font-size:15px}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{background:#eef0ec;font-size:13px;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .msg{padding:40px 16px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- 관리자 헤더 -->
+<header class="top">
+  <div class="inner">
+    <h1>AI 특강 신청자 관리</h1>
+    <a href="/api/logout">로그아웃</a>
+  </div>
+</header>
+
+<main class="inner">
+  <!-- 전체 신청 인원 -->
+  <div class="summary"><span class="label">전체 신청</span><span class="count" id="count">-</span><span class="label">명</span></div>
+  <p class="who" id="who"></p>
+
+  <!-- 신청자 목록 -->
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>이메일</th><th>소속</th><th>직위</th><th>신청 시간</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="msg">불러오는 중…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  // 신청자 목록 불러오기 (로그인 안 했으면 카카오 로그인으로 보냄)
+  (function(){
+    var rows=document.getElementById('rows');
+    function message(t){rows.innerHTML='';var tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='msg';td.textContent=t;tr.appendChild(td);rows.appendChild(tr);}
+    fetch('/api/admin/applicants',{credentials:'same-origin',cache:'no-store'})
+      .then(function(r){
+        if(r.status===401){location.href='/api/kakao/login';throw 'login';}
+        return r.json();
+      })
+      .then(function(d){
+        if(!d.ok){message(d.message||'목록을 불러오지 못했습니다.');return;}
+        document.getElementById('count').textContent=d.applicants.length;
+        if(d.admin&&d.admin.nick)document.getElementById('who').textContent=d.admin.nick+' 님으로 로그인됨';
+        if(!d.applicants.length){message('아직 신청자가 없습니다.');return;}
+        rows.innerHTML='';
+        d.applicants.forEach(function(a){
+          var tr=document.createElement('tr');
+          [a.id,a.name,a.phone,a.email,a.organization,a.position,a.created_at].forEach(function(v){
+            var td=document.createElement('td');td.textContent=(v===null||v===undefined||v==='')?'-':v;tr.appendChild(td);
+          });
+          rows.appendChild(tr);
+        });
+      })
+      .catch(function(e){if(e!=='login')message('목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.');});
+  })();
+</script>
+</body>
+</html>
