@@ -1,0 +1,20 @@
+// 2026-11-27 rev.11 — Cloudflare Worker 설정 파일
+// - 화면 파일(index.html, images)은 public 폴더에서 바로 보여 줌
+// - /api/... 주소는 src/worker.js 서버 코드가 처리
+// - 비밀값(카카오 키 등)은 여기 넣지 않음 → Cloudflare 화면 Settings > Variables and Secrets 에 "Secret"으로 넣기
+{
+  "name": "homepage-ai",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sample",
+      "database_id": "a942725b-c5c0-4297-a0fa-de9e070dbc8e"
+    }
+  ]
+}
