@@ -1,5 +1,5 @@
-// 2026-11-28 rev.15 — 서버 코드 (Cloudflare Worker) 길잡이 · 카카오 회원가입·로그인 추가
-//   (rev.13: 관리자 수정·삭제 / rev.12: 카카오 관리자 로그인)
+// 2026-11-28 rev.16 — 서버 코드 (Cloudflare Worker) 길잡이 · 관리자 회원 목록 추가
+//   (rev.15: 카카오 회원가입·로그인 / rev.13: 관리자 수정·삭제 / rev.12: 카카오 관리자 로그인)
 // 주소별로 어느 파일이 일하는지:
 //   src/kakao-login.js     카카오 로그인 시작
 //   src/kakao-callback.js  카카오에서 돌아온 손님 받기 (가입·로그인·관리자)
@@ -11,6 +11,7 @@
 //   GET  /api/kakao/callback    카카오에서 돌아오면 가입·로그인·관리자 처리
 //   POST /api/nickname          처음 가입한 회원의 닉네임 저장
 //   GET  /api/admin/applicants  관리자만 신청자 목록을 받음
+//   GET  /api/admin/members     관리자만 회원 목록을 받음 (최근 가입이 맨 위)
 //   PUT  /api/admin/applicants/번호  관리자만 신청자 정보 수정
 //   DELETE /api/admin/applicants/번호  관리자만 신청자 삭제
 //   GET  /api/logout            로그아웃
@@ -79,6 +80,21 @@ async function adminApplicants(request, env) {
   return json({ ok: true, admin: { nick: admin.nick || "" }, applicants: results || [] });
 }
 
+// 관리자: 회원 목록 (이메일·카카오 회원번호는 보내지 않음)
+async function adminMembers(request, env) {
+  const admin = await getAdmin(request, env);
+  if (!admin) return json({ ok: false, message: "관리자 로그인이 필요합니다." }, 401);
+  try {
+    const { results } = await env.DB
+      .prepare("SELECT id, provider, nickname, created_at, last_login_at FROM members ORDER BY id DESC")
+      .all();
+    return json({ ok: true, members: results || [] });
+  } catch (e) {
+    if (String(e && e.message).includes("no such table")) return json({ ok: false, message: "회원 표(members)가 아직 없습니다." }, 500);
+    return json({ ok: false, message: "회원 목록을 불러오지 못했습니다." }, 500);
+  }
+}
+
 // 신청 내용 검사 (신청·수정에서 같이 씀)
 function readApplicant(body) {
   const clean = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -143,6 +159,7 @@ export default {
     if (url.pathname === "/api/kakao/login") return kakaoLogin(request, env);
     if (url.pathname === "/api/kakao/callback") return kakaoCallback(request, env);
     if (url.pathname === "/api/admin/applicants") return adminApplicants(request, env);
+    if (url.pathname === "/api/admin/members") return adminMembers(request, env);
     const one = url.pathname.match(/^\/api\/admin\/applicants\/(\d+)$/);
     if (one) return adminApplicantOne(request, env, Number(one[1]));
     if (url.pathname === "/api/nickname") return saveNickname(request, env);
