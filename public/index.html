@@ -1,4 +1,4 @@
-<!-- 2026-11-27 rev.12 — 헤더 [신청하기] 옆에 [카카오 로그인] 버튼 추가 (관리자용: 로그인하면 관리자 페이지로 이동). 다른 곳은 그대로 -->
+<!-- 2026-11-28 rev.14 — 헤더 오른쪽 위에 [가입] [로그인] 버튼 추가 (모양만, 누르면 아직 아무 일 없음) + 관리자용 [카카오 로그인]은 푸터로 옮김. 다른 곳은 그대로 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -269,7 +269,15 @@
   .brand{overflow:hidden}
   .brand .logo{overflow:hidden;text-overflow:ellipsis}
 
+  /* ===== 헤더 가입·로그인 버튼 (모양만) / 푸터 관리자 로그인 ===== */
+  .btn-ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,.55)}
+  .admin-link{color:#8b908b;font-size:13px;text-decoration:underline}
+
   /* ===== 컴퓨터 화면 (넓을 때) ===== */
+  @media (max-width:380px){
+    .header .btn-sm{padding:0 9px;font-size:12px;min-height:36px}
+    .header-btns{gap:4px}
+  }
   @media (min-width:768px){
     .header-btns{gap:10px}
     .header .btn-sm{padding:0 18px;font-size:14px}
@@ -305,7 +313,8 @@
       <div class="logo">호서대학교 × 일잘러랩</div>
     </div>
     <div class="header-btns">
-      <a class="btn btn-sm btn-kakao" href="/api/kakao/login">카카오 로그인</a>
+      <button class="btn btn-sm btn-ghost" type="button">가입</button>
+      <button class="btn btn-sm btn-ghost" type="button">로그인</button>
       <button class="btn btn-white btn-sm" type="button" data-apply>신청하기</button>
     </div>
   </div>
@@ -481,6 +490,8 @@
     <p>문의: hello@example.com</p>
     <p class="gap">안내: 강의 실습용 예제 페이지입니다.</p>
     <p class="gap">© 2026 일잘러랩</p>
+    <!-- 관리자 로그인 (카카오) -->
+    <p class="gap"><a class="admin-link" href="/api/kakao/login">관리자 로그인</a></p>
   </div>
 </footer>
 
