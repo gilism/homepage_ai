@@ -1,4 +1,4 @@
-<!-- 2026-11-28 rev.14 — 헤더 오른쪽 위에 [가입] [로그인] 버튼 추가 (모양만, 누르면 아직 아무 일 없음) + 관리자용 [카카오 로그인]은 푸터로 옮김. 다른 곳은 그대로 -->
+<!-- 2026-11-28 rev.15 — 맨 위 메뉴만 고침: [가입]→signup.html, [로그인]→login.html 연결 + 로그인했으면 "○○님" + [로그아웃] (브라우저에 기억한 닉네임만 지움). 다른 곳은 그대로 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -272,6 +272,10 @@
   /* ===== 헤더 가입·로그인 버튼 (모양만) / 푸터 관리자 로그인 ===== */
   .btn-ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,.55)}
   .admin-link{color:#8b908b;font-size:13px;text-decoration:underline}
+  .header-btns a.btn{text-decoration:none}
+  .header-btns [hidden]{display:none}
+  .hello{display:flex;align-items:center;color:var(--white);font-size:14px;font-weight:600;white-space:nowrap;max-width:9em;overflow:hidden;text-overflow:ellipsis}
+  .hello b{overflow:hidden;text-overflow:ellipsis;font-weight:800}
 
   /* ===== 컴퓨터 화면 (넓을 때) ===== */
   @media (max-width:380px){
@@ -313,8 +317,12 @@
       <div class="logo">호서대학교 × 일잘러랩</div>
     </div>
     <div class="header-btns">
-      <button class="btn btn-sm btn-ghost" type="button">가입</button>
-      <button class="btn btn-sm btn-ghost" type="button">로그인</button>
+      <!-- 로그인 안 했을 때 -->
+      <a class="btn btn-sm btn-ghost guest" href="/signup.html">가입</a>
+      <a class="btn btn-sm btn-ghost guest" href="/login.html">로그인</a>
+      <!-- 로그인했을 때 -->
+      <span class="hello member" hidden><b id="hello-nick"></b>님</span>
+      <button class="btn btn-sm btn-ghost member" type="button" id="logout-btn" hidden>로그아웃</button>
       <button class="btn btn-white btn-sm" type="button" data-apply>신청하기</button>
     </div>
   </div>
@@ -695,6 +703,25 @@
           submit.disabled=false;
         });
     });
+  })();
+</script>
+<script>
+  // 맨 위 메뉴: 브라우저에 기억한 닉네임이 있으면 "○○님" + [로그아웃], 없으면 [가입] [로그인]
+  (function(){
+    var KEY='member_nickname';
+    function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
+    function draw(){
+      var n=get();
+      document.querySelectorAll('.header-btns .guest').forEach(function(el){el.hidden=!!n});
+      document.querySelectorAll('.header-btns .member').forEach(function(el){el.hidden=!n});
+      document.getElementById('hello-nick').textContent=n;
+    }
+    document.getElementById('logout-btn').addEventListener('click',function(){
+      try{localStorage.removeItem(KEY)}catch(e){}
+      draw();
+    });
+    window.addEventListener('pageshow',draw);
+    draw();
   })();
 </script>
 </body>
