@@ -1,4 +1,4 @@
-<!-- 2026-11-27 rev.12 — 관리자 페이지 처음 만듦: 카카오로 로그인한 관리자만 신청자 목록·전체 인원을 볼 수 있음 -->
+<!-- 2026-11-28 rev.13 — 줄마다 [수정] [삭제] 버튼 추가: 수정은 팝업에서 고쳐 저장, 삭제는 "정말 삭제할까요?" 확인 후 삭제 (최근 신청자 맨 위·총 신청 인원은 rev.12 그대로) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -31,6 +31,34 @@
   th{background:#eef0ec;font-size:13px;color:var(--muted)}
   tr:last-child td{border-bottom:0}
   .msg{padding:40px 16px;text-align:center;color:var(--muted)}
+
+  /* ===== 줄마다 수정·삭제 버튼 ===== */
+  .act{display:flex;gap:6px}
+  .act button{border:0;cursor:pointer;font:inherit;font-size:13px;font-weight:700;border-radius:999px;padding:6px 12px}
+  .act .edit{background:#eef0ec;color:var(--green)}
+  .act .del{background:#fbe9e7;color:#b3261e}
+
+  /* ===== 팝업 (수정·삭제 확인) ===== */
+  body.modal-open{overflow:hidden}
+  .modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(10,14,11,.72)}
+  .modal.open{display:flex}
+  .modal-box{position:relative;width:100%;max-width:440px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;background:var(--white);border-radius:22px;padding:26px 22px 22px;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+  .modal-box h2{font-size:20px;color:var(--green);margin-bottom:16px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-weight:700;font-size:14px;margin-bottom:5px}
+  .field label em{font-style:normal;color:var(--green);font-size:12px;margin-left:6px}
+  .field input{width:100%;min-height:46px;padding:0 12px;border:1.5px solid var(--line);border-radius:12px;font:inherit;font-size:16px}
+  .field input:focus{outline:none;border-color:var(--green)}
+  .err{color:#b3261e;font-weight:600;font-size:14px;margin:4px 0 10px}
+  .err:empty{display:none}
+  .btns{display:flex;gap:8px;margin-top:6px}
+  .btns button{flex:1;min-height:48px;border:0;border-radius:999px;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+  .btns .ok{background:var(--green);color:var(--white)}
+  .btns .ok.danger{background:#b3261e}
+  .btns .no{background:#eef0ec;color:var(--text)}
+  .btns button[disabled]{opacity:.6;cursor:default}
+  .confirm-who{background:var(--paper);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-weight:700}
+  .confirm-note{color:var(--muted);font-size:14px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -51,37 +79,125 @@
   <!-- 신청자 목록 -->
   <div class="table-wrap">
     <table>
-      <thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>이메일</th><th>소속</th><th>직위</th><th>신청 시간</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="7" class="msg">불러오는 중…</td></tr></tbody>
+      <thead><tr><th>번호</th><th>이름</th><th>연락처</th><th>이메일</th><th>소속</th><th>직위</th><th>신청 시간</th><th>관리</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8" class="msg">불러오는 중…</td></tr></tbody>
     </table>
   </div>
 </main>
 
+<!-- 수정 팝업 -->
+<div class="modal" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title" hidden>
+  <div class="modal-box">
+    <h2 id="edit-title">신청 정보 수정</h2>
+    <form id="edit-form" novalidate>
+      <div class="field"><label for="e-name">이름<em>필수</em></label><input id="e-name" name="name" maxlength="50"></div>
+      <div class="field"><label for="e-org">소속</label><input id="e-org" name="organization" maxlength="100"></div>
+      <div class="field"><label for="e-pos">직위</label><input id="e-pos" name="position" maxlength="50"></div>
+      <div class="field"><label for="e-phone">연락처<em>필수</em></label><input id="e-phone" name="phone" type="tel" maxlength="30"></div>
+      <div class="field"><label for="e-email">이메일<em>필수</em></label><input id="e-email" name="email" type="email" maxlength="254"></div>
+      <p class="err" id="edit-err" role="alert"></p>
+      <div class="btns"><button class="no" type="button" data-close>취소</button><button class="ok" type="submit" id="edit-save">저장</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- 삭제 확인 팝업 -->
+<div class="modal" id="del-modal" role="dialog" aria-modal="true" aria-labelledby="del-title" hidden>
+  <div class="modal-box">
+    <h2 id="del-title">정말 삭제할까요?</h2>
+    <p class="confirm-who" id="del-who"></p>
+    <p class="confirm-note">삭제하면 되돌릴 수 없습니다.</p>
+    <p class="err" id="del-err" role="alert"></p>
+    <div class="btns"><button class="no" type="button" data-close>취소</button><button class="ok danger" type="button" id="del-ok">삭제</button></div>
+  </div>
+</div>
+
 <script>
-  // 신청자 목록 불러오기 (로그인 안 했으면 카카오 로그인으로 보냄)
+  // 신청자 목록 불러오기 (로그인 안 했으면 카카오 로그인으로 보냄) + 줄마다 수정·삭제
   (function(){
     var rows=document.getElementById('rows');
-    function message(t){rows.innerHTML='';var tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='msg';td.textContent=t;tr.appendChild(td);rows.appendChild(tr);}
-    fetch('/api/admin/applicants',{credentials:'same-origin',cache:'no-store'})
-      .then(function(r){
+    var list=[];
+    function message(t){rows.innerHTML='';var tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='msg';td.textContent=t;tr.appendChild(td);rows.appendChild(tr);}
+    function call(url,opt){
+      opt=opt||{};opt.credentials='same-origin';opt.cache='no-store';
+      return fetch(url,opt).then(function(r){
         if(r.status===401){location.href='/api/kakao/login';throw 'login';}
-        return r.json();
-      })
-      .then(function(d){
-        if(!d.ok){message(d.message||'목록을 불러오지 못했습니다.');return;}
-        document.getElementById('count').textContent=d.applicants.length;
-        if(d.admin&&d.admin.nick)document.getElementById('who').textContent=d.admin.nick+' 님으로 로그인됨';
-        if(!d.applicants.length){message('아직 신청자가 없습니다.');return;}
-        rows.innerHTML='';
-        d.applicants.forEach(function(a){
-          var tr=document.createElement('tr');
-          [a.id,a.name,a.phone,a.email,a.organization,a.position,a.created_at].forEach(function(v){
-            var td=document.createElement('td');td.textContent=(v===null||v===undefined||v==='')?'-':v;tr.appendChild(td);
-          });
-          rows.appendChild(tr);
+        return r.json().catch(function(){return {ok:false}});
+      });
+    }
+    function show(v){return (v===null||v===undefined||v==='')?'-':v}
+
+    // 목록 그리기 (최근 신청자가 맨 위)
+    function render(){
+      document.getElementById('count').textContent=list.length;
+      if(!list.length){message('아직 신청자가 없습니다.');return;}
+      rows.innerHTML='';
+      list.forEach(function(a){
+        var tr=document.createElement('tr');
+        [a.id,a.name,a.phone,a.email,a.organization,a.position,a.created_at].forEach(function(v){
+          var td=document.createElement('td');td.textContent=show(v);tr.appendChild(td);
         });
-      })
-      .catch(function(e){if(e!=='login')message('목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.');});
+        var td=document.createElement('td'),box=document.createElement('div');box.className='act';
+        var e=document.createElement('button');e.type='button';e.className='edit';e.textContent='수정';e.onclick=function(){openEdit(a)};
+        var d=document.createElement('button');d.type='button';d.className='del';d.textContent='삭제';d.onclick=function(){openDel(a)};
+        box.appendChild(e);box.appendChild(d);td.appendChild(box);tr.appendChild(td);
+        rows.appendChild(tr);
+      });
+    }
+    function load(){
+      call('/api/admin/applicants').then(function(d){
+        if(!d.ok){message(d.message||'목록을 불러오지 못했습니다.');return;}
+        if(d.admin&&d.admin.nick)document.getElementById('who').textContent=d.admin.nick+' 님으로 로그인됨';
+        list=d.applicants;render();
+      }).catch(function(e){if(e!=='login')message('목록을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.');});
+    }
+
+    // 팝업 열고 닫기
+    function open(m){m.hidden=false;m.classList.add('open');document.body.classList.add('modal-open');}
+    function close(m){m.classList.remove('open');m.hidden=true;document.body.classList.remove('modal-open');}
+    document.querySelectorAll('.modal').forEach(function(m){
+      m.querySelectorAll('[data-close]').forEach(function(b){b.onclick=function(){close(m)}});
+    });
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(close)});
+
+    // [수정]
+    var em=document.getElementById('edit-modal'),ef=document.getElementById('edit-form'),eerr=document.getElementById('edit-err'),esave=document.getElementById('edit-save'),editing=null;
+    function openEdit(a){
+      editing=a;eerr.textContent='';esave.disabled=false;
+      ef.name.value=a.name||'';ef.organization.value=a.organization||'';ef.position.value=a.position||'';ef.phone.value=a.phone||'';ef.email.value=a.email||'';
+      open(em);setTimeout(function(){ef.name.focus()},50);
+    }
+    ef.addEventListener('submit',function(e){
+      e.preventDefault();eerr.textContent='';
+      var d={name:ef.name.value.trim(),organization:ef.organization.value.trim(),position:ef.position.value.trim(),phone:ef.phone.value.trim(),email:ef.email.value.trim()};
+      if(!d.name){eerr.textContent='이름을 입력해 주세요.';ef.name.focus();return;}
+      if(!d.phone){eerr.textContent='연락처를 입력해 주세요.';ef.phone.focus();return;}
+      if(!d.email){eerr.textContent='이메일을 입력해 주세요.';ef.email.focus();return;}
+      esave.disabled=true;
+      call('/api/admin/applicants/'+editing.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){
+        if(!r.ok){eerr.textContent=r.message||'수정하지 못했습니다.';esave.disabled=false;return;}
+        list=list.map(function(x){return x.id===r.applicant.id?r.applicant:x});
+        render();close(em);
+      }).catch(function(e){if(e!=='login'){eerr.textContent='서버에 연결하지 못했습니다.';esave.disabled=false;}});
+    });
+
+    // [삭제]
+    var dm=document.getElementById('del-modal'),derr=document.getElementById('del-err'),dok=document.getElementById('del-ok'),deleting=null;
+    function openDel(a){
+      deleting=a;derr.textContent='';dok.disabled=false;
+      document.getElementById('del-who').textContent=a.id+'번 · '+a.name+' · '+a.email;
+      open(dm);
+    }
+    dok.onclick=function(){
+      dok.disabled=true;
+      call('/api/admin/applicants/'+deleting.id,{method:'DELETE'}).then(function(r){
+        if(!r.ok){derr.textContent=r.message||'삭제하지 못했습니다.';dok.disabled=false;return;}
+        list=list.filter(function(x){return x.id!==deleting.id});
+        render();close(dm);
+      }).catch(function(e){if(e!=='login'){derr.textContent='서버에 연결하지 못했습니다.';dok.disabled=false;}});
+    };
+
+    load();
   })();
 </script>
 </body>

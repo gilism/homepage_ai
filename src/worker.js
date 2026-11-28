@@ -1,9 +1,11 @@
-// 2026-11-27 rev.12 — 서버 코드 (Cloudflare Worker) · 카카오 관리자 로그인 추가
+// 2026-11-28 rev.13 — 서버 코드 (Cloudflare Worker) · 관리자 수정·삭제 추가 (rev.12: 카카오 관리자 로그인)
 // 하는 일:
 //   POST /api/apply             특강 신청을 D1(DB)의 applicants 표에 저장
 //   GET  /api/kakao/login       카카오 로그인 화면으로 보냄
 //   GET  /api/kakao/callback    카카오에서 돌아오면 관리자인지 확인 → 관리자면 /admin.html 로
 //   GET  /api/admin/applicants  관리자만 신청자 목록을 받음
+//   PUT  /api/admin/applicants/번호  관리자만 신청자 정보 수정
+//   DELETE /api/admin/applicants/번호  관리자만 신청자 삭제
 //   GET  /api/logout            로그아웃
 // 그 밖의 주소는 public 폴더의 화면 파일을 보여 줌
 //
@@ -204,6 +206,59 @@ async function adminApplicants(request, env) {
   return json({ ok: true, admin: { nick: admin.nick || "" }, applicants: results || [] });
 }
 
+// 신청 내용 검사 (신청·수정에서 같이 씀)
+function readApplicant(body) {
+  const clean = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const a = {
+    name: clean(body.name, 50),
+    phone: clean(body.phone, 30),
+    email: clean(body.email, 254),
+    organization: clean(body.organization, 100),
+    position: clean(body.position, 50),
+  };
+  if (!a.name) return { error: "이름을 입력해 주세요." };
+  if (!a.phone) return { error: "연락처를 입력해 주세요." };
+  if (!/^[0-9+\-\s()]{7,30}$/.test(a.phone)) return { error: "연락처를 다시 확인해 주세요." };
+  if (!a.email) return { error: "이메일을 입력해 주세요." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email)) return { error: "이메일 주소를 다시 확인해 주세요." };
+  return { a };
+}
+
+// 관리자: 한 명 수정·삭제
+async function adminApplicantOne(request, env, id) {
+  const admin = await getAdmin(request, env);
+  if (!admin) return json({ ok: false, message: "관리자 로그인이 필요합니다." }, 401);
+
+  if (request.method === "DELETE") {
+    const r = await env.DB.prepare("DELETE FROM applicants WHERE id = ?").bind(id).run();
+    if (!r.meta || !r.meta.changes) return json({ ok: false, message: "이미 삭제되었거나 없는 신청자입니다." }, 404);
+    return json({ ok: true });
+  }
+
+  if (request.method === "PUT") {
+    let body;
+    try { body = await request.json(); } catch (e) { return json({ ok: false, message: "수정 내용을 읽지 못했습니다." }, 400); }
+    const { a, error } = readApplicant(body);
+    if (error) return json({ ok: false, message: error }, 400);
+    try {
+      const row = await env.DB
+        .prepare(
+          "UPDATE applicants SET name = ?, organization = ?, position = ?, phone = ?, email = ? WHERE id = ? " +
+            "RETURNING id, name, organization, position, phone, email, created_at"
+        )
+        .bind(a.name, a.organization || null, a.position || null, a.phone, a.email, id)
+        .first();
+      if (!row) return json({ ok: false, message: "이미 삭제되었거나 없는 신청자입니다." }, 404);
+      return json({ ok: true, applicant: row });
+    } catch (e) {
+      if (String(e && e.message).includes("UNIQUE")) return json({ ok: false, message: "이미 다른 신청자가 사용 중인 이메일입니다." }, 409);
+      return json({ ok: false, message: "수정하지 못했습니다. 잠시 뒤 다시 시도해 주세요." }, 500);
+    }
+  }
+
+  return json({ ok: false, message: "허용되지 않는 요청입니다." }, 405);
+}
+
 function logout() {
   return new Response(null, { status: 302, headers: { Location: "/", "Set-Cookie": cookie(SESSION_COOKIE, "", 0) } });
 }
@@ -215,6 +270,8 @@ export default {
     if (url.pathname === "/api/kakao/login") return kakaoLogin(request, env);
     if (url.pathname === "/api/kakao/callback") return kakaoCallback(request, env);
     if (url.pathname === "/api/admin/applicants") return adminApplicants(request, env);
+    const one = url.pathname.match(/^\/api\/admin\/applicants\/(\d+)$/);
+    if (one) return adminApplicantOne(request, env, Number(one[1]));
     if (url.pathname === "/api/logout") return logout();
     if (url.pathname.startsWith("/api/")) return json({ ok: false, message: "없는 주소입니다." }, 404);
     return env.ASSETS.fetch(request);
